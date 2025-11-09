@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r requirements.txt
+      - name: Import check
+        run: |
+          python - <<'PY'
+          import importlib
+          for m in ['fastapi','uvicorn','transformers','pyttsx3']:
+              importlib.import_module(m)
+          print("OK")
+          PY

@@ -1,0 +1,119 @@
+VOICE_AGENT_EX3 - WINDOWS SETUP (Option B: Keep OpenAI Whisper w/ PyTorch)
+
+Goal: Use Python 3.11, install PyTorch FIRST (CPU or CUDA), then install the rest.
+
+Prereqs:
+1) Python 3.11 installed and on PATH (check with: py -3.11 --version)
+2) FFmpeg installed (needed for audio). Options:
+   - Chocolatey: choco install ffmpeg -y
+   - Or download a static build from https://ffmpeg.org/ and add its 'bin' folder to PATH
+3) (Optional) Git + VS Code for development
+
+Steps:
+
+1) Create a fresh virtual environment with Python 3.11
+   ----------------------------------------------------------------
+   # If currently in a venv, deactivate it first:
+   deactivate
+
+   # In the project folder:
+   py -3.11 -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+
+   python -m pip install --upgrade pip wheel setuptools
+   ----------------------------------------------------------------
+
+2) Install PyTorch FIRST (choose one)
+   ----------------------------------------------------------------
+   # CPU-only (recommended if you don't need GPU)
+   pip install torch==2.4.1+cpu torchvision==0.19.1+cpu --index-url https://download.pytorch.org/whl/cpu
+
+   # OR CUDA 12.1 build (ONLY if you actually have CUDA 12.1 and a compatible GPU/driver)
+   pip install torch==2.4.1+cu121 torchvision==0.19.1+cu121 --index-url https://download.pytorch.org/whl/cu121
+   ----------------------------------------------------------------
+
+3) Save this requirements.txt for the project
+   ----------------------------------------------------------------
+   fastapi==0.115.0
+   uvicorn[standard]==0.30.6
+   python-multipart==0.0.9
+   pydantic==2.9.2
+   httpx==0.27.2
+   websockets==12.0
+   aiofiles==24.1.0
+
+   SpeechRecognition==3.10.4
+   whisper==1.1.10
+   soundfile==0.12.1
+   pydub==0.25.1
+
+   transformers==4.44.2
+   accelerate==0.34.2
+
+   pyttsx3==2.98
+   numpy==1.26.4
+   ----------------------------------------------------------------
+
+4) Install remaining dependencies
+   ----------------------------------------------------------------
+   pip install -r requirements.txt
+   ----------------------------------------------------------------
+
+5) Environment tips
+   ----------------------------------------------------------------
+   - Ensure FFmpeg is installed and accessible via PATH (ffmpeg -version should work).
+   - If Windows blocks scripts, run PowerShell as admin:
+       Set-ExecutionPolicy RemoteSigned
+     then re-open a normal PowerShell and re-activate the venv.
+
+choco install ffmpeg -y
+ffmpeg -version
+
+If activating the venv or running scripts is blocked, set a safer, user-scoped policy.
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+Get-ExecutionPolicy -List
+
+Option 2 — Manual download
+Download a Windows build from: https://ffmpeg.org/download.html
+Extract the archive, e.g. to: C:\ffmpeg\ so you have C:\ffmpeg\bin\ffmpeg.exe.
+Add C:\ffmpeg\bin to PATH:
+Press Win + R → type sysdm.cpl → OK.
+Advanced tab → Environment Variables…
+Under User variables, select Path → Edit → New → add C:\ffmpeg\bin → OK out of all dialogs.
+
+
+.\.venv\Scripts\Activate.ps1
+
+# Adjust this path if you put it elsewhere
+$ff = "C:\ffmpeg\bin\ffmpeg.exe"
+Test-Path $ff
+& $ff -version
+
+# Add for this PowerShell session
+$env:Path = "C:\ffmpeg\bin;$env:Path"
+
+# Make it persistent for your user account
+[Environment]::SetEnvironmentVariable(
+  "Path",
+  "$($env:Path);C:\ffmpeg\bin",
+  "User"
+)
+
+
+
+6) Run the server
+   ----------------------------------------------------------------
+   uvicorn main:app --reload --port 8000
+
+   Open http://localhost:8000 in your browser.
+   - Use ASR engine "whisper" (server-side OpenAI Whisper via PyTorch)
+   - Or select "google" to use SpeechRecognition's Google Web Speech (no key = limited)
+   ----------------------------------------------------------------
+
+Troubleshooting:
+- If PyTorch install fails, double-check the index-url line and your Python version:
+    py -3.11 --version
+- If whisper pulls in heavy scientific libs, the versions in this file avoid librosa/scipy to reduce native builds.
+- If audio upload or playback fails, verify FFmpeg is on PATH and that your browser mic permissions are granted.
+
+This setup keeps OpenAI Whisper (PyTorch) and avoids building numpy/scipy from source on Windows by using compatible wheels.

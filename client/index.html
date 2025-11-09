@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>EX3 Voice Agent Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+    .bubble { padding: .6rem .8rem; border-radius: 10px; margin: .4rem 0; }
+    .user { background: #e8f1ff; }
+    .bot { background: #f4f4f4; }
+    button { padding: .6rem 1rem; margin-right: .5rem; }
+    #log { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>EX3 Voice Agent</h1>
+  <p>Hold <b>Record</b>, speak, then release. The server will transcribe your audio, generate a reply, and speak it back. At least 5 turns should work.</p>
+  <div>
+    <button id="record">🎙️ Record</button>
+    <select id="asr">
+      <option value="whisper">whisper</option>
+      <option value="google">google</option>
+    </select>
+    <button id="reset">Reset</button>
+  </div>
+  <div id="chat"></div>
+  <audio id="player" controls></audio>
+
+<script>
+  const btn = document.getElementById('record');
+  const asrSel = document.getElementById('asr');
+  const chat = document.getElementById('chat');
+  const player = document.getElementById('player');
+  const resetBtn = document.getElementById('reset');
+
+  function addBubble(text, who) {
+    const div = document.createElement('div');
+    div.className = 'bubble ' + (who === 'user' ? 'user' : 'bot');
+    div.textContent = text;
+    chat.appendChild(div);
+    window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  let mediaRecorder, chunks = [];
+
+  async function startRecording() {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream);
+    chunks = [];
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = onStop;
+    mediaRecorder.start();
+  }
+
+  async function onStop() {
+    const blob = new Blob(chunks, { type: 'audio/webm' });
+    const wavBlob = await blobToWav(blob);
+    const fd = new FormData();
+    fd.append('engine', asrSel.value);
+    fd.append('file', wavBlob, 'input.wav');
+    const t = await fetch('/transcribe', { method: 'POST', body: fd }).then(r=>r.json());
+    if (!t.text) return;
+    addBubble(t.text, 'user');
+    const r = await fetch('/reply', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({text: t.text}) }).then(r=>r.json());
+    addBubble(r.reply, 'bot');
+    const audio = await fetch('/speak', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({text: r.reply}) });
+    const aBlob = await audio.blob();
+    player.src = URL.createObjectURL(aBlob);
+    player.play();
+  }
+
+  btn.onmousedown = startRecording;
+  btn.onmouseup = () => mediaRecorder && mediaRecorder.stop();
+  btn.ontouchstart = (e)=>{ e.preventDefault(); startRecording(); };
+  btn.ontouchend = (e)=>{ e.preventDefault(); mediaRecorder && mediaRecorder.stop(); };
+
+  resetBtn.onclick = async () => {
+    await fetch('/reset', { method: 'POST' });
+    chat.innerHTML = '';
+  };
+
+  // Convert WebM to WAV in browser
+  async function blobToWav(blob) {
+    const arrayBuffer = await blob.arrayBuffer();
+    // Decode via WebAudio then re-encode PCM WAV
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuf = await audioCtx.decodeAudioData(arrayBuffer);
+    const wavBuffer = audioBufferToWav(audioBuf);
+    return new Blob([wavBuffer], { type: 'audio/wav' });
+  }
+
+  // Minimal WAV encoder (mono)
+  function audioBufferToWav(buffer, opt) {
+    opt = opt || {}
+    var numChannels = 1
+    var sampleRate = buffer.sampleRate
+    var format = 1
+    var bitDepth = 16
+
+    var samples = buffer.getChannelData(0)
+    var blockAlign = numChannels * bitDepth / 8
+    var byteRate = sampleRate * blockAlign
+    var dataSize = samples.length * blockAlign
+
+    var buffer2 = new ArrayBuffer(44 + dataSize)
+    var view = new DataView(buffer2)
+
+    function writeString(view, offset, string) {
+      for (var i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i))
+      }
+    }
+
+    var offset = 0
+    writeString(view, 0, 'RIFF'); offset += 4
+    view.setUint32(offset, 36 + dataSize, true); offset += 4
+    writeString(view, offset, 'WAVE'); offset += 4
+    writeString(view, offset, 'fmt '); offset += 4
+    view.setUint32(offset, 16, true); offset += 4
+    view.setUint16(offset, format, true); offset += 2
+    view.setUint16(offset, numChannels, true); offset += 2
+    view.setUint32(offset, sampleRate, true); offset += 4
+    view.setUint32(offset, byteRate, true); offset += 4
+    view.setUint16(offset, blockAlign, true); offset += 2
+    view.setUint16(offset, bitDepth, true); offset += 2
+    writeString(view, offset, 'data'); offset += 4
+    view.setUint32(offset, dataSize, true); offset += 4
+
+    // PCM samples
+    var idx = 44
+    for (var i = 0; i < samples.length; i++, idx += 2) {
+      var s = Math.max(-1, Math.min(1, samples[i]))
+      view.setInt16(idx, s < 0 ? s * 0x8000 : s * 0x7FFF, true)
+    }
+    return buffer2
+  }
+</script>
+</body>
+</html>

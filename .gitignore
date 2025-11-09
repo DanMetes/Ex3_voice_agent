@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python packaging
+build/
+dist/
+*.egg-info/
+
+# Logs / cache
+.logs/
+*.log
+.cache/
+.pytest_cache/
+
+# Local env
+.env
+.env.*
+
+# Data / artifacts
+*.wav
+*.webm
+*.mp3
+
+# VS Code
+.vscode/*.log
+.history/
+
+# Node / web
+node_modules/
