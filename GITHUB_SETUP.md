@@ -42,6 +42,12 @@ git commit -m "feat: initial commit - EX3 voice agent project setup"
 ## 🌐 5. Create the Remote Repository
 ### Option A — Using GitHub CLI
 ```bash
+# remove the stale lock dir mentioned in the error (path may differ); run as administrator in win power shell
+Remove-Item 'C:\ProgramData\chocolatey\lib\03fa614411207ddb46e8aca6ad6abb2721319062' -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item 'C:\ProgramData\chocolatey\lib\gh' -Recurse -Force -ErrorAction SilentlyContinue
+choco upgrade chocolatey -y
+choco install gh -y
+
 gh auth login  # first time only
 gh repo create voice_agent_ex3 --source . --public --push
 ```
